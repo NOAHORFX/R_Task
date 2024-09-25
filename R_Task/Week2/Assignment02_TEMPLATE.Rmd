@@ -1,0 +1,103 @@
+---
+title: "Assignment 2"
+author: "Insert My Name"
+date: "2024-09-25"
+output: html_document # you can change to other output format if you want
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+   #library(tidyverse)
+   #install.packages("Stat2Data")
+   #library(Stat2Data)
+   data("Hawks")
+   head(Hawks)
+```
+
+# 1. Data Wrangling
+
+## 1.1 (Q1)   
+```{r}
+hSF <- Hawks %>%
+        filter(Species == "RT" & Weight >= 1000) %>%
+        select("Wing", "Weight", "Tail")
+hSF
+```
+
+## 1.1 (Q2) 
+# There are three variables in this data frame(Wing, Weight, Tail). 
+# For the ML practitioner, I will tell them each sample in the dataset have three features vetor, they are Wing, Weight and Tail.
+```{r}
+ncol(hSF)  # 3
+nrow(hSF)  # 398
+```
+# The Number of examples is same as the number of row, and examples, observations, case is the same meaning, both of them are same.
+
+## 1.2 (Q1)
+```{r}
+head(hSF %>% arrange(Wing))
+```
+
+## 1.3 (Q1)
+```{r}
+species_code <- c("CH", "RT", "SS")
+species_name_full <- c("Cooper's", "Red-tailed", "Sharp-shinned")
+hawkSpeciesNameCodes <- data.frame(species_code, species_name_full)
+hawkSpeciesNameCodes
+```
+
+## 1.3 (Q2)
+```{r}
+hawksFullName <- Hawks %>%
+                 left_join(hawkSpeciesNameCodes, by = c("Species" = "species_code")) %>%
+                 select(-Species) %>%
+                 rename(Species = species_name_full)
+
+hawksFullName
+```
+
+## 1.3 (Q3)
+```{r}
+hawksFullName %>%
+  select(Species, Wing, Weight) %>%
+  head(7)
+```
+
+# It's important to choose left join because we need to keep Hawks's data, and we can ingore the data that the hawkSpeciesNameCodes' s can't matching with. If not matching, It could fill with null.
+# inner_join can lead to if there's one coloum doesn't matching, this coloum will be abandon. right_join will keep the right side data and to give up the left side data. The full_join will keep both side of the data, and one side of this coloum will be NA.
+
+
+## 1.4 (Q1)
+```{r}
+hawksWithBMI <- Hawks %>%
+                mutate(bird_BMI = 1000 * Weight / (Wing ^ 2)) %>%
+                select(Species, bird_BMI) %>%
+                arrange(desc(bird_BMI))
+hawksWithBMI
+```
+
+
+## 1.5 (Q1)
+```{r}
+hawksSummarize <- hawksFullName %>%
+                  group_by(Species) %>%
+                  summarize(
+                    num_rows = n(),
+                    mn_wing = mean(Wing / 10, na.rm = TRUE),
+                    nd_wing = median(Wing / 10, na.rm = TRUE),
+                    t_mn_wing = mean(Wing / 10, trim = 0.1, na.rm = TRUE),
+                    b_wt_ratio = max(Wing / Tail, na.rm = TRUE)
+                  )
+hawksSummarize
+```
+
+# 1.5 (Q2)
+```{r}
+missingSummary <- hawksFullName %>%
+                  select(Species, Wing, Weight, Culmen, Hallux, Tail, StandardTail, Tarsus, Crop) %>%
+                  group_by(Species) %>%
+                  summarize(across(everything(), ~sum(is.na(.))))
+missingSummary
+```
+
+
