@@ -1,0 +1,197 @@
+---
+title: "Assignment_03"
+author: "noah"
+date: "2024-10-01"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(Stat2Data)
+data("Hawks")
+```
+
+# 1.Visualisation
+# Question 1
+```{r}
+hawksSmall <- drop_na(select(Hawks,Age,Day,Month,Year,CaptureTime,Species,Wing,Weight,Tail))
+dim(hawksSmall)
+head(hawksSmall)
+
+```
+
+
+# Question 2
+```{r}
+ggplot(data = hawksSmall, aes(x = Weight)) +
+         geom_histogram(binwidth = 10) +
+         xlab("Weight") +
+         ylab("Count")
+
+```
+
+
+# Question 3
+```{r}
+ggplot(data = hawksSmall, aes(x = Tail)) +
+         geom_density(adjust=0.5) +
+         xlab("Tail length") +
+         ylab("Count")
+
+ggplot(data = hawksSmall, aes(x = Tail)) +
+         geom_density(adjust=2) +
+         xlab("Tail length") +
+         ylab("Count")
+```
+
+# There are three peak value in the first plot, which mean it was Trimodal. And the second plot shows that two peak, it's Bimodal.
+# adjust = 0.5: The curve more narrower and more sharper. And adjust = 2: The curve are more smoother.
+
+# Question 4
+```{r}
+ggplot(data = hawksSmall, aes(x = Tail, color = Species)) +
+         geom_density(adjust = 2) +
+         xlab("Tail length") +
+         ylab("Count")
+```
+
+# Question 5
+```{r}
+ggplot(data = hawksSmall, aes(x = Tail, y = Species, fill = Species)) +
+  geom_violin() +
+  geom_boxplot(width = 0.1, outlier.colour = "red") +
+  xlab("Tail length") +
+  ylab("Species")
+
+```
+
+# Question 6
+```{r}
+ggplot(data = hawksSmall, aes(x = Tail, y = Weight)) +
+  geom_point(aes(color = Species, shape = Species)) +
+  xlab("Tail(mm)")+
+  ylab("Weight(mm)")
+
+```
+
+# Each color represent different species, same as the shape of the points. Red circle represent CH, Green triangles represent RT, and Blue square represent SS. The X-axis represent Tail length, and Y-axis represent Weight.
+
+
+# Question 7
+
+# As the length of the tail increases, so does the weight. the RT has a greater range of weights.
+```{r}
+ggplot(data = hawksSmall, aes(x = Tail, y = Weight)) +
+  geom_point(aes(color = Species)) +
+  geom_smooth(method = "lm") +
+  facet_wrap(~Species, scales = "free_y") +
+  xlab("Tail(mm)") +
+  ylab("Weight(mm)")
+
+```
+
+
+# Question 8
+```{r}
+# max(hawksSmall %>% select("Weight"))
+heaviest_hawks <- hawksSmall %>%
+  filter(Weight == max(Weight, na.rm = TRUE)) %>%
+  select(Weight, Tail)
+heaviest_hawks
+
+ggplot(data = hawksSmall, aes(x = Tail, y = Weight)) +
+  geom_point(aes(color = Species, shape = Species)) +
+  geom_curve(x = 190, xend = 195, y = 1600, yend = 2020, arrow = arrow(length = unit(0.5, 'cm')), curvature = 0.1) +
+  geom_text(x = 190, y = 1550, label = "heavest hawk") +
+  xlab("Tail(mm)")+
+  ylab("Weight(mm)")
+
+```
+
+
+
+# Finite probability spaces
+# Question 1
+$$
+P(Z = z) = \binom{22}{z} \cdot \left( \frac{3}{10} \right)^z \cdot \left( \frac{7}{10} \right)^{22 - z}
+$$
+
+# Question 2
+```{r}
+prob_red_spheres <- function(z) {
+  return(choose(22, z) * (3/10)^z * (7/10)^(22-z))
+}
+
+prob_red_spheres(10)
+
+```
+
+# Question 3
+```{r}
+prob_by_num_reds <- data.frame(
+  num_reds = 0:22,
+  prob = sapply(0:22, prob_red_spheres)
+)
+
+head(prob_by_num_reds, 3)
+
+```
+
+# Question 4
+```{r}
+ggplot(data = prob_by_num_reds, aes(x = num_reds, y = prob)) +
+  geom_line() +
+  labs(x = "Num of reds", y = "Probability")
+
+```
+
+# Question 5
+```{r}
+sample(10, 22, replace = TRUE)
+set.seed(111)
+sample(10, 22, replace = TRUE)
+
+```
+
+# Question 6
+```{r}
+# 模拟 1000 次抽样
+num_trials <- 1000
+set.seed(0)
+sampling_sim <- data.frame(trial = 1:num_trials) %>%
+  mutate(sample_balls = replicate(num_trials, sample(10, 22, replace = TRUE)))
+
+# 计算每次抽样中红色球的数量
+sampling_sim <- sampling_sim %>%
+  mutate(num_reds = sapply(sample_balls, function(x) sum(x <= 3)))
+
+# 统计每个红色球数量的频率
+num_reds_in_sim <- sampling_sim$num_reds
+prob_by_num_reds <- prob_by_num_reds %>%
+  mutate(predicted_prob = sapply(0:22, function(z) sum(num_reds_in_sim == z) / num_trials))
+
+
+```
+
+# Question 7
+```{r}
+ggplot(prob_by_num_reds) +
+  geom_line(aes(x = num_reds, y = prob, color = "Theoretical")) +
+  geom_line(aes(x = num_reds, y = predicted_prob, color = "Simulated"), linetype = "dashed") +
+  xlab("Number of reds") +
+  ylab("Probability") +
+  theme_minimal()
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
