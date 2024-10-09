@@ -1,0 +1,207 @@
+---
+title: "Assignment_04"
+author: "noah"
+date: "2024-10-8"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+# 1.1 Tidy data and iteration
+# Question 1
+```{r}
+library(purrr)
+
+impute_by_mean <- function(x) {
+  mu <- mean(x, na.rm = TRUE)
+  impute_f<-function(z) { # coordinate-wise imputation
+    if(is.na(z)) {
+      return(mu) # if z is na replace with mean
+    } else {
+      return(z) # otherwise leave in place
+    }
+  }
+  return(map_dbl(x, impute_f)) # apply the map function to impute across the vector
+}
+
+vector <- c(1, 2, NA, 4)
+impute_by_mean(vector)
+
+```
+
+# Question 2
+```{r}
+v <- c(1, 2, NA, 4)
+impute_by_median <- function(x) {
+  mid_num <- median(x, na.rm = TRUE)
+  
+  impute_f <- function(y) {
+    if(is.na(y)) {
+      return(mid_num)
+    } else {
+      return(y)
+    }
+  }
+  return(map_dbl(x, impute_f))
+}
+
+v <- c(1, 2, NA, 4)
+impute_by_median(v)
+```
+
+# Question 3
+```{r}
+x = seq(0, 10, by = 0.1)
+df_xy <- data.frame(x = x, y = 5*x + 1)
+
+df_xy %>% head(5)
+```
+
+# Question 4
+```{r}
+df_xy %>% 
+  mutate(z = map2_dbl(x, y, ~.x+.y)) %>%
+  head(5)
+
+sometimes_missing <- function(index, value) {
+  if(index%%5 == 0) {
+    return(NA)
+  } else {
+    return(value)
+  }
+}
+
+sometimes_missing(14, 25)
+sometimes_missing(15, 25)
+
+x = seq(0, 10, by = 0.1)
+"\df_xy_missing <- data.frame(
+  x = x,
+  y = map2_dbl(row_number(), 5 * x + 1, sometimes_missing)
+)
+df_xy_missing %>% head(10)"
+
+df_xy_missing <- data.frame(x = x)
+df_xy_missing <- df_xy_missing %>%
+  mutate(y = map2_dbl(row_number(), 5 * x + 1, sometimes_missing))
+
+head(df_xy_missing, 10)
+```
+
+# Question 5
+```{r}
+x = seq(0, 10, by = 0.1)
+
+df_xy_imputed <- data.frame(x = x)
+df_xy_imputed <- df_xy_imputed %>% 
+  mutate(y = impute_by_median(df_xy_missing$y))
+df_xy_imputed
+
+```
+
+# 1.2 Tidying data with pivot functions
+# Question 1
+```{r}
+install.packages("readxl")
+library(readxl)
+folder_path <- './'
+file_name <- "HockeyLeague.xlsx"
+file_path <- paste(folder_path, file_name, sep = "")
+wins_data_frame <- read_excel(file_path, sheet = "Wins")
+wins_data_frame %>% 
+  select(1:5) %>%
+  head(3)
+
+
+
+```
+```{r}
+wins_tidy <- wins_data_frame %>%
+  pivot_longer(
+    cols = matches("^19|^20"),
+    names_to = "Year",
+    values_to = "Win_Total"
+  ) %>%
+  separate(Win_Total, into = c("Wins", "Total"), sep = " of ", convert = TRUE) %>%
+  rename(Team = ...1)
+
+head(wins_tidy)
+
+wins_tidy %>% dim()
+wins_tidy%>%head(5)
+
+```
+
+# Question 2
+```{r}
+losses_data_frame <- read_excel("HockeyLeague.xlsx", sheet = "Losses")
+
+losses_tidy <- losses_data_frame %>%
+  pivot_longer(
+    cols = matches("^19|^20"),
+    names_to = "Year",
+    values_to = "Losses_Total"
+  ) %>%
+  separate(Losses_Total, into = c("Losses", "Total"), sep = " of ", convert = TRUE) %>%
+  rename(Team = ...1)
+losses_tidy %>% head(5)
+losses_tidy %>% dim()
+
+```
+
+# Question 3
+```{r}
+library(dplyr)
+
+
+hockey_df <- full_join(wins_tidy, losses_tidy, by = c("Team", "Year", "Total"))
+hockey_df
+
+hockey_df <- hockey_df %>%
+  mutate(
+    Draws = Total - Wins - Losses,
+    across(c(Wins, Losses, Draws), ~ . / Total, .names = "{.col}_rt")
+  )
+
+hockey_df %>% head(5)
+
+
+```
+
+# Question 4
+```{r}
+# 生成汇总数据框
+summary_df <- hockey_df %>%
+  select(Team, Wins_rt, Losses_rt, Draws_rt) %>%  # 选择相关的比例列
+  group_by(Team) %>%  # 按团队分组
+  summarize(
+    W_md = median(Wins_rt, na.rm = TRUE),   # 胜率中位数
+    W_mn = mean(Wins_rt, na.rm = TRUE),     # 胜率均值
+    L_md = median(Losses_rt, na.rm = TRUE), # 败率中位数
+    L_mn = mean(Losses_rt, na.rm = TRUE),   # 败率均值
+    D_md = median(Draws_rt, na.rm = TRUE),  # 平局率中位数
+    D_mn = mean(Draws_rt, na.rm = TRUE)     # 平局率均值
+  ) %>%
+  arrange(desc(W_md))  # 按胜率中位数降序排列
+
+# 检查前几行
+summary_df %>% head()
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
