@@ -1,0 +1,248 @@
+---
+title: "Assignment_04"
+author: "noah"
+date: "2024-10-09"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+install.packages("lubridate")
+library(tidyverse)
+```
+
+# 1.Tidy data and iteration
+# Question 1
+```{r}
+install.packages("purrr")
+library(purrr)
+
+impute_by_name <- function(x) {
+  mu <- mean(x, na.rm = TRUE)
+  impute_f <- function(z) {
+    if(is.na(z)) {
+      return(mu)
+    } else {
+      return(z)
+    }
+  }
+  return(map_dbl(x, impute_f))
+}
+
+```
+
+# Question 2
+```{r}
+impute_by_median <- function(v) {
+  mid_num <- median(v, na.rm = TRUE)
+  
+  impute_f <- function(z) {
+    if(is.na(z)) {
+      return(mid_num)
+    } else {
+      return(z)
+    }
+  }
+  return(map_dbl(v, impute_f))
+}
+
+v <- c(1, 2, NA, 4)
+impute_by_median(v)
+
+
+```
+# Question 3
+```{r}
+x <- seq(0, 10, by = 0.1)
+df_xy <- data.frame(x = x, y = 5 * x + 1)
+df_xy %>% head(5)
+
+```
+
+# Question 4
+```{r}
+df_xy %>% 
+  mutate(z = map2_dbl(x, y, ~.x + .y)) %>% 
+  head(5)
+
+```
+```{r}
+sometimes_missing <- function(index, value) {
+  if(index %% 5 == 0) {
+    return(NA)
+  } else {
+    return(value)
+  }
+}
+
+sometimes_missing(14, 25)
+sometimes_missing(15, 25)
+
+x <- seq(0, 10, by = 0.1)
+df_xy_missing <- data.frame(x = x)
+df_xy_missing <- df_xy_missing %>%
+  mutate(y = map2_dbl(row_number(), 5 * x + 1, sometimes_missing))
+
+df_xy_missing %>% head(10)
+
+```
+
+# Question 5
+```{r}
+x <- seq(0, 10, by = 0.1)
+df_xy_imputed <- data_frame(x = x)
+df_xy_imputed <- df_xy_imputed %>%
+  mutate(y = impute_by_median(df_xy_missing$y))
+df_xy_imputed
+
+```
+
+# 1.2 Tidying data with pivot functions
+# Question 1
+```{r}
+install.packages("readxl")
+library(readxl)
+folder_path <- './'
+file_name <- "HockeyLeague.xlsx"
+file_path <- paste(folder_path, file_name, sep = "")
+wins_data_frame <- read_excel(file_path, sheet = "Wins")
+wins_data_frame
+
+wins_data_frame %>%
+ select(1:5)%>%
+ head(3)
+
+```
+```{r}
+wins_tidy <- wins_data_frame %>%
+  pivot_longer(
+    cols = matches("^19|^20"),
+    names_to = "Year",
+    values_to = "Win_Total"
+  ) %>%
+  separate(Win_Total, into = c("Wins", "Total"), sep = " of ", convert = TRUE)  %>% 
+  rename(Team = ...1)
+
+wins_tidy %>% dim()
+wins_tidy%>%head(5)
+
+```
+
+# Question 2
+```{r}
+Losses_data_frame <- read_excel(file_path, sheet = "Losses")
+
+losses_tidy <- Losses_data_frame %>%
+  pivot_longer(
+    cols = matches("^19|^20"),
+    names_to = "Year",
+    values_to = "Loss_Total"
+  ) %>%
+  separate(Loss_Total, into = c("Losses", "Total"), sep = " of ", convert = TRUE)  %>% 
+  rename(Team = ...1)
+
+losses_tidy %>% head(5)
+
+```
+
+# Question 3
+```{r}
+hockey_df <- full_join(wins_tidy, losses_tidy, by = c("Team", "Year", "Total"))
+hockey_df <- hockey_df %>%
+  mutate(
+    Draws = Total - Wins - Losses,
+    across(c(Wins, Losses, Draws), ~ ./Total, .names = "{.col}_rt")
+  )
+
+hockey_df
+hockey_df %>% head(5)
+```
+# Question 4
+```{r}
+hockey_df %>%
+  select(Team, Wins_rt, Losses_rt, Draws_rt) %>%
+  group_by(Team) %>%
+  summarize(
+    W_md = median(Wins_rt, na.rm = TRUE),
+    W_mn = mean(Wins_rt, na.rm = TRUE),
+    L_md = median(Losses_rt, na.rm = TRUE),
+    L_mn = mean(Losses_rt, na.rm = TRUE),
+    D_md = median(Draws_rt, na.rm = TRUE),
+    D_mn = mean(Draws_rt, na.rm = TRUE)
+  ) %>%
+  arrange(desc(W_md))
+
+```
+
+# 1.3 Simulation experiments of probabilities
+# Question 1
+```{r}
+num_red_balls<-3
+num_blue_balls<-7
+total_draws<-22
+
+prob_red_spheres<-function(z){
+ total_balls<-num_red_balls+num_blue_balls
+ log_prob<-log(choose(total_draws,z))+
+ z*log(num_red_balls/total_balls)+(total_draws-z)*log(num_blue_balls/total_balls)
+ return(exp(log_prob))
+}
+
+itermap <- function(.x, .f) {
+ result <- list()
+ for (item in .x) { result <- c(result, list(.f(item))) }
+ return(result)
+}
+
+itermap_dbl <- function(.x, .f) {
+ result <- numeric(length(.x))
+ for (i in 1:length(.x)) { result[i] <- .f(.x[[i]]) }
+ return(result)
+}
+
+num_trials<-1000 # set the number of trials
+set.seed(0) # set the random seed
+num_reds_in_simulation <- data.frame(trial=1:num_trials) %>%
+ mutate(sample_balls = itermap(.x=trial, function(x){sample(10,22, replace = TRUE)})) %>%
+ mutate(num_reds = itermap_dbl( .x=sample_balls, function(.x) sum(.x<=3) ) ) %>%
+ pull(num_reds) 
+
+prob_by_num_reds <- data.frame(num_reds=seq(22)) %>%
+ mutate(TheoreticalProbability=prob_red_spheres(num_reds)) %>%
+ mutate(EstimatedProbability=itermap_dbl(.x=num_reds, function(.x) sum(num_reds_in_simulation==.x))/num_trials)
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
